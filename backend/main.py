@@ -14,6 +14,8 @@ from sessions import SESSION_STORE
 
 load_dotenv()
 
+MAX_PDF_BYTES = 10 * 1024 * 1024  # 10 MB
+
 app = FastAPI(title="Chat with PDF")
 
 _cors_origins = [
@@ -57,6 +59,8 @@ async def upload(file: UploadFile = File(...)):
     pdf_bytes = await file.read()
     if not pdf_bytes:
         raise HTTPException(status_code=400, detail="Empty file")
+    if len(pdf_bytes) > MAX_PDF_BYTES:
+        raise HTTPException(status_code=400, detail="PDF must be 10 MB or smaller")
 
     session_id = str(uuid.uuid4())
     try:

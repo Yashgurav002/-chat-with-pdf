@@ -194,6 +194,7 @@ Restart the backend after changing `MODE`.
 - **In-memory sessions** — uploading a PDF creates a session in a Python dict. Server restart, redeploy, or Render sleep wipes all sessions. Users must re-upload.
 - **Render cold starts** — free tier spins down after ~15 min of inactivity. First request after sleep takes ~60 seconds. This is expected, not a bug.
 - **First-request model download** — HuggingFace embeddings download ~90 MB on first use. On Render this can timeout. Pre-warm by hitting `/health` after deploy, or add a startup handler that loads the embedding model at boot.
+- **10 MB upload cap** — enforced in the frontend and backend to stay within Render's 30s timeout and 512 MB RAM.
 - **Text-layer PDFs only** — `PyPDFLoader` cannot OCR scanned documents.
 - **No conversation memory** — each question is independent. Chat history in the UI is cosmetic; the LLM does not see prior turns.
 - **No auth or rate limiting** — appropriate for a portfolio demo, not production.

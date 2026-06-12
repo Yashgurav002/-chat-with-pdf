@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
+const MAX_PDF_BYTES = 10 * 1024 * 1024 // 10 MB
 
 export default function UploadPanel({ onUploadSuccess }) {
   const inputRef = useRef(null)
@@ -13,6 +14,10 @@ export default function UploadPanel({ onUploadSuccess }) {
 
     if (!file.name.toLowerCase().endsWith('.pdf')) {
       setError('Please upload a PDF file.')
+      return
+    }
+    if (file.size > MAX_PDF_BYTES) {
+      setError('PDF must be 10 MB or smaller.')
       return
     }
 
@@ -80,7 +85,7 @@ export default function UploadPanel({ onUploadSuccess }) {
         ) : (
           <>
             <p className="dropzone-title">Drop a PDF here or click to browse</p>
-            <p className="dropzone-hint">PDF files only</p>
+            <p className="dropzone-hint">PDF files only · max 10 MB</p>
           </>
         )}
       </div>
