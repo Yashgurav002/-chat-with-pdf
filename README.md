@@ -2,7 +2,7 @@
 
 A full-stack RAG app that lets you upload a PDF and ask questions about it. Built with FastAPI, LangChain 1.x (LCEL), ChromaDB, and React.
 
-**Live demo:** _Deploy with the steps below, then add your URL here._
+**Live demo:** [chat-with-pdf-amber-chi.vercel.app](https://chat-with-pdf-amber-chi.vercel.app)
 
 ---
 
