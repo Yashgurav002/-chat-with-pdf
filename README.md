@@ -41,7 +41,7 @@ Browser (React + Vite)
 | Decision | Why |
 |---|---|
 | **In-memory ChromaDB per session** | Right-sized for a portfolio demo — no Redis, no persistent vector DB, no cost. Trade-off: sessions die when the server restarts or sleeps. |
-| **HuggingFace embeddings on CPU** | Free, no API key, runs in ~100 MB RAM. Embeddings stay local; only LLM inference hits an external API. |
+| **FastEmbed (ONNX) for embeddings** | Free, no API key, ~50 MB RAM — fits Render's 512 MB free tier. PyTorch/sentence-transformers alone exceed the limit. |
 | **Groq for LLM (production)** | Free tier, no credit card, extremely fast streaming. Ollama can't run on Render's 512 MB free instances. |
 | **LCEL chain (not RetrievalQA)** | LangChain 1.x deprecated the old chain classes. LCEL is composable, debuggable, and streams natively. |
 | **SSE via fetch + ReadableStream** | `EventSource` is GET-only. `fetch` + `getReader()` supports POST with a JSON body. |
@@ -206,7 +206,7 @@ Restart the backend after changing `MODE`.
 |---|---|
 | PDF loading | `langchain-community` → `PyPDFLoader` |
 | Chunking | `langchain-text-splitters` → `RecursiveCharacterTextSplitter` (800 / 150) |
-| Embeddings | `langchain-huggingface` → `all-MiniLM-L6-v2` |
+| Embeddings | `fastembed` → `BAAI/bge-small-en-v1.5` (ONNX, Render-safe) |
 | Vector store | `langchain-chroma` → in-memory ChromaDB |
 | LLM | `langchain-groq` → `llama-3.1-8b-instant` |
 | Chain | LCEL: `retriever \| prompt \| llm \| StrOutputParser()` |

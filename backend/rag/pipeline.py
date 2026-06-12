@@ -5,9 +5,9 @@ from pathlib import Path
 from dotenv import load_dotenv
 from langchain_chroma import Chroma
 from langchain_community.document_loaders import PyPDFLoader
+from langchain_community.embeddings import FastEmbedEmbeddings
 from langchain_community.vectorstores.utils import filter_complex_metadata
 from langchain_core.vectorstores import VectorStoreRetriever
-from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_ollama import OllamaEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
@@ -26,8 +26,9 @@ def _get_embeddings():
         base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
         _embeddings = OllamaEmbeddings(model="nomic-embed-text", base_url=base_url)
     else:
-        _embeddings = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2"
+        # FastEmbed uses ONNX (~50 MB) instead of PyTorch (~500 MB) — fits Render free tier
+        _embeddings = FastEmbedEmbeddings(
+            model_name="BAAI/bge-small-en-v1.5"
         )
     return _embeddings
 
