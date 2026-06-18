@@ -19,7 +19,7 @@ function App() {
     <div className="app">
       <header className="app-header">
         <h1>Chat with PDF</h1>
-        <p>Upload a document to start asking questions.</p>
+        <p>Upload one or more PDFs to start asking questions.</p>
       </header>
 
       <UploadPanel onUploadSuccess={handleUploadSuccess} />
@@ -29,9 +29,19 @@ function App() {
           <div className="session-info">
             <span className="ready-badge">Ready to chat</span>
             <span className="stats-badge">
-              {session.page_count} pages · {session.chunk_count} chunks
+              {session.doc_count
+                ? `${session.doc_count} docs · ${session.page_count} pages · ${session.chunk_count} chunks`
+                : `${session.page_count} pages · ${session.chunk_count} chunks`}
             </span>
           </div>
+
+          {session.doc_names && session.doc_names.length > 0 && (
+            <div className="doc-names">
+              {session.doc_names.map((name, i) => (
+                <span key={i} className="doc-name-badge">{name}</span>
+              ))}
+            </div>
+          )}
 
           <ChatWindow
             sessionId={session.session_id}

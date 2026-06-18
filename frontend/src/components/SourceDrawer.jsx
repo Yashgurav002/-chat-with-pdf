@@ -19,7 +19,12 @@ export default function SourceDrawer({ sources }) {
         <ul className="source-list">
           {sources.map((source, i) => (
             <li key={i} className="source-item">
-              <span className="source-page">Page {source.page + 1}</span>
+              <div className="source-meta">
+                <span className="source-page">Page {source.page + 1}</span>
+                {source.source_file && (
+                  <span className="source-file">{source.source_file}</span>
+                )}
+              </div>
               <p>{source.text}</p>
             </li>
           ))}

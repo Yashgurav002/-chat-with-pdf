@@ -1,9 +1,10 @@
 import os
 
 from dotenv import load_dotenv
+from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.runnables import RunnablePassthrough
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.runnables import RunnablePassthrough, RunnableLambda
 from langchain_groq import ChatGroq
 from langchain_ollama import ChatOllama
 
@@ -30,16 +31,29 @@ def _format_docs(docs):
     return "\n\n".join(doc.page_content for doc in docs)
 
 
-def build_chain(retriever):
+def build_chain(retriever, chat_history: list = None):
+    chat_history = chat_history or []
+
     prompt = ChatPromptTemplate.from_messages([
         (
             "system",
-            "Answer only from the provided context. If you don't know, say so.\n\nContext:\n{context}",
+            "Answer only from the provided context. "
+            "If you don't know, say so.\n\nContext:\n{context}",
         ),
+        MessagesPlaceholder(variable_name="chat_history"),
         ("human", "{question}"),
     ])
+
+    def build_input(question: str):
+        docs = retriever.invoke(question)
+        return {
+            "context": _format_docs(docs),
+            "chat_history": chat_history,
+            "question": question,
+        }
+
     return (
-        {"context": retriever | _format_docs, "question": RunnablePassthrough()}
+        RunnableLambda(build_input)
         | prompt
         | _get_llm()
         | StrOutputParser()
