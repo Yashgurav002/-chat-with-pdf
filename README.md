@@ -1,79 +1,108 @@
-# Chat with PDF
+<div align="center">
 
-A full-stack RAG app that lets you upload a PDF and ask questions about it. Built with FastAPI, LangChain 1.x (LCEL), ChromaDB, and React.
+# 🗂️ Chat with PDF
 
-**Live demo:** [chat-with-pdf-amber-chi.vercel.app](https://chat-with-pdf-amber-chi.vercel.app)
+### Ask questions across multiple PDFs — with memory, streaming, and source attribution.
+
+[![Live Demo](https://img.shields.io/badge/🚀_Live_Demo-chat--with--pdf--amber--chi.vercel.app-2E75B6?style=for-the-badge)](https://chat-with-pdf-amber-chi.vercel.app)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![LangChain](https://img.shields.io/badge/LangChain-1C3C3C?style=for-the-badge&logo=chainlink&logoColor=white)](https://langchain.com)
+[![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org)
+[![ChromaDB](https://img.shields.io/badge/ChromaDB-FF6B35?style=for-the-badge)](https://www.trychroma.com)
+
+</div>
 
 ---
 
-## What it does
+## ✨ What It Does
 
-1. Upload a PDF from the browser
-2. The backend extracts text, chunks it, embeds it, and stores vectors in an in-memory ChromaDB collection
-3. Ask questions in a chat UI — answers stream back token-by-token via Server-Sent Events
-4. View the source chunks that grounded each answer
+Upload one or more PDFs and chat with them — the app remembers your previous questions, streams answers token-by-token, and shows you exactly which pages it used to answer.
+
+```
+User: "What does the contract say about termination clauses?"
+  → Retrieves 4 relevant chunks from 3 uploaded PDFs
+  → Streams the answer back live
+  → Shows: "Source: contract_v2.pdf — page 14"
+```
 
 ---
 
-## Architecture
+## 🎯 Features
+
+| Feature | How it works |
+|---|---|
+| 📄 **Multi-PDF upload** | Drag & drop multiple PDFs at once — all land in one shared session |
+| 💬 **Conversation memory** | Full chat history passed to the LLM on every turn — follow-ups work naturally |
+| ⚡ **Streaming responses** | Token-by-token via SSE — no waiting for the full answer |
+| 📍 **Source attribution** | Every answer shows the exact chunk, page number, and filename it came from |
+| 🔄 **Local / Cloud mode** | Single `MODE` env flag to switch between Groq (cloud) and Ollama (offline) |
+
+---
+
+## 🏗️ Architecture
 
 ```
 Browser (React + Vite)
-    │
-    ├── POST /upload  ──►  PyPDFLoader  ──►  RecursiveCharacterTextSplitter
-    │                              │
-    │                              ▼
-    │                    HuggingFace Embeddings (all-MiniLM-L6-v2)
-    │                              │
-    │                              ▼
-    │                    ChromaDB (in-memory, per session)
-    │
-    └── POST /chat    ──►  LCEL retrieval chain
-                                    │
-                    retriever → prompt → Groq LLM → stream tokens
-                                    │
-                                    ▼
-                           SSE response + source chunks
+│
+├── POST /upload-multiple ──► PyPDFLoader (per file)
+│                                    │
+│                                    ▼
+│                         RecursiveCharacterTextSplitter
+│                                    │
+│                                    ▼
+│                         FastEmbed ONNX Embeddings
+│                                    │
+│                                    ▼
+│                         ChromaDB (in-memory, per session)
+│
+└── POST /chat ──► LCEL retrieval chain
+                          │
+              retriever → prompt (+ chat history) → Groq LLM → stream tokens
+                          │
+                          ▼
+               SSE response + source chunks
 ```
 
-### Key design decisions
+### Key Design Decisions
 
 | Decision | Why |
 |---|---|
-| **In-memory ChromaDB per session** | Right-sized for a portfolio demo — no Redis, no persistent vector DB, no cost. Trade-off: sessions die when the server restarts or sleeps. |
-| **FastEmbed (ONNX) for embeddings** | Free, no API key, ~50 MB RAM — fits Render's 512 MB free tier. PyTorch/sentence-transformers alone exceed the limit. |
-| **Groq for LLM (production)** | Free tier, no credit card, extremely fast streaming. Ollama can't run on Render's 512 MB free instances. |
-| **LCEL chain (not RetrievalQA)** | LangChain 1.x deprecated the old chain classes. LCEL is composable, debuggable, and streams natively. |
-| **SSE via fetch + ReadableStream** | `EventSource` is GET-only. `fetch` + `getReader()` supports POST with a JSON body. |
-| **MODE env flag** | Swap Groq ↔ Ollama and HuggingFace ↔ Ollama embeddings for offline local dev without code changes. |
+| **In-memory ChromaDB per session** | Right-sized for a portfolio demo — no Redis, no persistent DB, no cost. Trade-off: sessions clear on server restart. |
+| **FastEmbed (ONNX) for embeddings** | Free, no API key, ~50 MB RAM — fits inside Render's 512 MB free tier. PyTorch alone exceeds the limit. |
+| **Groq for LLM** | Free tier, no credit card, extremely fast streaming. Ollama can't run on Render's free instances. |
+| **LCEL chain (not RetrievalQA)** | LangChain 1.x deprecated old chain classes. LCEL is composable, debuggable, and streams natively. |
+| **MessagesPlaceholder for memory** | Chat history injected directly into prompt on every turn — no external memory store needed. |
+| **`fetch` + ReadableStream for SSE** | `EventSource` is GET-only. `fetch` + `getReader()` supports POST with a JSON body. |
+| **`MODE` env flag** | Swap Groq ↔ Ollama and FastEmbed ↔ Ollama embeddings without touching code. |
 
 ---
 
-## Project structure
+## 📁 Project Structure
 
 ```
 chat-with-pdf/
 ├── backend/
-│   ├── main.py              # FastAPI routes
-│   ├── sessions.py          # In-memory session store
+│   ├── main.py              # FastAPI routes (/upload, /upload-multiple, /chat)
+│   ├── sessions.py          # In-memory session store (retriever + chat history)
 │   ├── rag/
-│   │   ├── pipeline.py      # PDF → chunks → Chroma retriever
-│   │   └── chain.py         # LCEL retrieval + generation chain
+│   │   ├── pipeline.py      # PDF(s) → chunks → Chroma retriever
+│   │   └── chain.py         # LCEL chain with conversation memory
 │   └── requirements.txt
+│
 └── frontend/
     └── src/
         ├── App.jsx
         └── components/
-            ├── UploadPanel.jsx
-            ├── ChatWindow.jsx
-            └── SourceDrawer.jsx
+            ├── UploadPanel.jsx   # Multi-file dropzone with file pills
+            ├── ChatWindow.jsx    # Streaming chat with auto-scroll
+            └── SourceDrawer.jsx  # Source chunks with page + filename
 ```
 
 ---
 
-## Local setup
+## 🚀 Local Setup
 
-**Requirements:** Python 3.10+, Node.js 18+
+**Requirements:** Python 3.10+ · Node.js 18+
 
 ### 1. Backend
 
@@ -88,36 +117,40 @@ python -m venv .venv
 source .venv/bin/activate
 
 pip install -r requirements.txt
-cp .env.example .env   # then add your GROQ_API_KEY
+cp .env.example .env     # add your GROQ_API_KEY here
 uvicorn main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-API docs: http://127.0.0.1:8000/docs
+> API docs auto-generated at **http://127.0.0.1:8000/docs**
 
 ### 2. Frontend
 
 ```bash
 cd frontend
 npm install
-cp .env.example .env
+cp .env.example .env     # set VITE_API_BASE_URL=http://127.0.0.1:8000
 npm run dev
 ```
 
-App: http://127.0.0.1:5173
+> App runs at **http://127.0.0.1:5173**
 
-### Groq mode (production — default)
+---
 
-Uses HuggingFace `all-MiniLM-L6-v2` embeddings + Groq `llama-3.1-8b-instant`.
+## ⚙️ Modes
 
-1. Get a free API key at [console.groq.com](https://console.groq.com) (GitHub login, no credit card)
+### ☁️ Groq Mode (default — production)
+
+Uses **FastEmbed** `BAAI/bge-small-en-v1.5` + **Groq** `llama-3.1-8b-instant`.
+
+1. Get a free key (no credit card) at [console.groq.com](https://console.groq.com)
 2. Set in `backend/.env`:
 
-```
+```env
 GROQ_API_KEY=your_key_here
 MODE=production
 ```
 
-### Ollama mode (offline local dev)
+### 🖥️ Ollama Mode (offline local dev)
 
 ```bash
 ollama pull llama3.2
@@ -126,7 +159,7 @@ ollama pull nomic-embed-text
 
 Set in `backend/.env`:
 
-```
+```env
 MODE=local
 OLLAMA_BASE_URL=http://localhost:11434
 ```
@@ -135,81 +168,90 @@ Restart the backend after changing `MODE`.
 
 ---
 
-## Environment variables
+## 🌍 Environment Variables
 
 ### Backend (`backend/.env`)
 
 | Variable | Required | Description |
 |---|---|---|
-| `GROQ_API_KEY` | Yes (production mode) | Groq API key from console.groq.com |
+| `GROQ_API_KEY` | Yes (production) | Groq API key from console.groq.com |
 | `MODE` | No | `production` (default) or `local` |
-| `OLLAMA_BASE_URL` | No | Ollama server URL. Default: `http://localhost:11434` |
+| `OLLAMA_BASE_URL` | No | Ollama server URL — default: `http://localhost:11434` |
 
 ### Frontend (`frontend/.env`)
 
 | Variable | Required | Description |
 |---|---|---|
-| `VITE_API_BASE_URL` | Yes | Backend URL. Local: `http://127.0.0.1:8000` |
+| `VITE_API_BASE_URL` | Yes | Backend URL — local: `http://127.0.0.1:8000` |
 
 ---
 
-## API
+## 📡 API Reference
 
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/upload` | Upload PDF (`multipart/form-data`, field: `file`) → `{ session_id, page_count, chunk_count }` |
+| `POST` | `/upload` | Upload single PDF → `{ session_id, page_count, chunk_count }` |
+| `POST` | `/upload-multiple` | Upload multiple PDFs → `{ session_id, doc_count, doc_names, chunk_count }` |
 | `POST` | `/chat` | `{ session_id, question }` → SSE stream of `{ token }` events, final `{ done, sources }` |
 | `DELETE` | `/session/{session_id}` | Clear session → `{ deleted: true }` |
 | `GET` | `/health` | Health check → `{ status: "ok" }` |
 
 ---
 
-## Deployment
+## 📦 Deployment
 
 ### Backend — Render (free tier, no credit card)
 
-1. Push the repo to GitHub
-2. Create a new **Web Service** on [render.com](https://render.com), connect the repo
+1. Push repo to GitHub
+2. New **Web Service** on [render.com](https://render.com) → connect repo
 3. Settings:
    - **Root directory:** `backend`
    - **Build command:** `pip install -r requirements.txt`
    - **Start command:** `uvicorn main:app --host 0.0.0.0 --port $PORT`
-4. Environment variables in the Render dashboard:
+4. Add environment variables in the Render dashboard:
    - `GROQ_API_KEY` = your key
    - `MODE` = `production`
-5. After deploy, update CORS in `backend/main.py` — add your Vercel URL to `allow_origins`
+5. Add your Vercel URL to `_cors_origins` in `main.py`
 
 ### Frontend — Vercel
 
-1. Connect the repo on [vercel.com](https://vercel.com)
+1. Connect repo on [vercel.com](https://vercel.com)
 2. Settings:
    - **Root directory:** `frontend`
-   - **Environment variable:** `VITE_API_BASE_URL` = your Render backend URL (e.g. `https://your-app.onrender.com`)
-3. Deploy — Vercel auto-detects Vite
+   - **Environment variable:** `VITE_API_BASE_URL` = your Render backend URL
+3. Deploy — Vercel auto-detects Vite ✅
 
 ---
 
-## Known limitations
+## ⚠️ Known Limitations
 
-- **In-memory sessions** — uploading a PDF creates a session in a Python dict. Server restart, redeploy, or Render sleep wipes all sessions. Users must re-upload.
-- **Render cold starts** — free tier spins down after ~15 min of inactivity. First request after sleep takes ~60 seconds. This is expected, not a bug.
-- **First-request model download** — HuggingFace embeddings download ~90 MB on first use. On Render this can timeout. Pre-warm by hitting `/health` after deploy, or add a startup handler that loads the embedding model at boot.
-- **10 MB upload cap** — enforced in the frontend and backend to stay within Render's 30s timeout and 512 MB RAM.
-- **Text-layer PDFs only** — `PyPDFLoader` cannot OCR scanned documents.
-- **No conversation memory** — each question is independent. Chat history in the UI is cosmetic; the LLM does not see prior turns.
+- **In-memory sessions** — sessions live in a Python dict. Server restart or Render sleep wipes all sessions; users must re-upload.
+- **Render cold starts** — free tier spins down after ~15 min idle. First request after sleep takes ~60 seconds.
+- **512 MB RAM cap** — large PDFs (>1 MB) may OOM on Render's free tier during embedding. Fine for demo-sized docs.
+- **10 MB upload cap per file** — enforced in frontend and backend to stay within Render's timeout and RAM limits.
+- **Text-layer PDFs only** — `PyPDFLoader` cannot OCR scanned/image-only documents.
 - **No auth or rate limiting** — appropriate for a portfolio demo, not production.
 
 ---
 
-## Tech stack
+## 🧰 Tech Stack
 
-| Layer | Package |
+| Layer | Library |
 |---|---|
 | PDF loading | `langchain-community` → `PyPDFLoader` |
-| Chunking | `langchain-text-splitters` → `RecursiveCharacterTextSplitter` (800 / 150) |
+| Chunking | `langchain-text-splitters` → `RecursiveCharacterTextSplitter` |
 | Embeddings | `fastembed` → `BAAI/bge-small-en-v1.5` (ONNX, Render-safe) |
 | Vector store | `langchain-chroma` → in-memory ChromaDB |
+| Conversation memory | `langchain-core` → `MessagesPlaceholder` + session-scoped history |
 | LLM | `langchain-groq` → `llama-3.1-8b-instant` |
-| Chain | LCEL: `retriever \| prompt \| llm \| StrOutputParser()` |
+| Chain | LCEL: `RunnableLambda → prompt → llm → StrOutputParser` |
 | Backend | FastAPI + uvicorn |
-| Frontend | React + Vite |
+| Frontend | React + Vite + react-markdown |
+
+---
+
+<div align="center">
+
+Built by [your name](https://github.com/yourusername) · Give it a ⭐ if you found it useful!
+
+</div>
