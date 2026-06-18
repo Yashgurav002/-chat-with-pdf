@@ -38,8 +38,9 @@ app.add_middleware(
 
 @app.on_event("startup")
 def preload_models():
-    if os.getenv("MODE", "production") == "production":
-        warmup_embeddings()
+    # if os.getenv("MODE", "production") == "production":
+    #     warmup_embeddings()
+    pass
 
 
 class ChatRequest(BaseModel):
